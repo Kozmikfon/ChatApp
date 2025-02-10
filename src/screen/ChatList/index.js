@@ -1,5 +1,5 @@
-import React, {useState, useEffect} from 'react';
-import {Text, View} from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View } from 'react-native';
 import {
   List,
   Avatar,
@@ -10,54 +10,57 @@ import {
   Button,
   TextInput,
 } from 'react-native-paper';
-import firebase from '@react-native-firebase/app';
-import {useNavigation} from '@react-navigation/core';
+import auth from '@react-native-firebase/auth';
+import firestore from '@react-native-firebase/firestore';
+import { useNavigation } from '@react-navigation/core';
 
 const ChatList = () => {
   const [isDialogVisible, setIsDialogVisible] = useState(false);
-
   const [email, setEmail] = useState('');
   const [userEmail, setUserEmail] = useState('');
-
-  useEffect(() => {
-    firebase.auth().onAuthStateChanged(user => {
-      setEmail(user?.email ?? '');
-    });
-  }, []);
-
   const [isLoading, setIsLoading] = useState(false);
-
+  const [chats, setChats] = useState([]);
+  
   const navigation = useNavigation();
 
-  const createChat = async () => {
-    if (!email || !userEmail) return;
-    setIsLoading(true);
-    const response = await firebase
-      .firestore()
-      .collection('chats')
-      .add({
-        users: [email, userEmail],
-      });
-    setIsLoading(false);
-    setIsDialogVisible(false);
-    navigation.navigate('Chat', {chatId: response.id});
-  };
-
-  const [chats, setChats] = useState([]);
   useEffect(() => {
-    return firebase
-      .firestore()
+    const unsubscribeAuth = auth().onAuthStateChanged(user => {
+      setEmail(user?.email ?? '');
+    });
+    return unsubscribeAuth;
+  }, []);
+
+  useEffect(() => {
+    const unsubscribeChats = firestore()
       .collection('chats')
       .where('users', 'array-contains', email)
       .onSnapshot(querySnapshot => {
         setChats(querySnapshot.docs);
       });
+
+    return unsubscribeChats;
   }, [email]);
 
+  const createChat = async () => {
+    if (!email || !userEmail) return;
+    setIsLoading(true);
+
+    const response = await firestore()
+      .collection('chats')
+      .add({
+        users: [email, userEmail],
+        messages: [], // Mesajlar için boş bir dizi ekle
+      });
+
+    setIsLoading(false);
+    setIsDialogVisible(false);
+    navigation.navigate('Chat', { chatId: response.id });
+  };
+
   return (
-    <View style={{flex: 1}}>
+    <View style={{ flex: 1 }}>
       {chats.map(chat => (
-        <React.Fragment>
+        <React.Fragment key={chat.id}>
           <List.Item
             title={chat.data().users.find(x => x !== email)}
             description={(chat.data().messages ?? [])[0]?.text ?? undefined}
@@ -71,7 +74,7 @@ const ChatList = () => {
                 size={56}
               />
             )}
-            onPress={() => navigation.navigate('Chat', {chatId: chat.id})}
+            onPress={() => navigation.navigate('Chat', { chatId: chat.id })}
           />
           <Divider inset />
         </React.Fragment>
@@ -80,7 +83,8 @@ const ChatList = () => {
       <Portal>
         <Dialog
           visible={isDialogVisible}
-          onDismiss={() => setIsDialogVisible(false)}>
+          onDismiss={() => setIsDialogVisible(false)}
+        >
           <Dialog.Title>New Chat</Dialog.Title>
           <Dialog.Content>
             <TextInput
@@ -100,7 +104,7 @@ const ChatList = () => {
 
       <FAB
         icon="plus"
-        style={{position: 'absolute', bottom: 16, right: 16}}
+        style={{ position: 'absolute', bottom: 16, right: 16 }}
         onPress={() => setIsDialogVisible(true)}
       />
     </View>

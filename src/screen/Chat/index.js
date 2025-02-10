@@ -1,53 +1,54 @@
-import { useRoute } from "@react-navigation/core";
-import React, { useEffect, useState } from "react";
-import { Text, View } from "react-native";
-import firebase from '@react-native-firebase/app';
-import { GiftedChat } from "react-native-gifted-chat";
+import {useRoute} from '@react-navigation/core';
+import React, {useEffect, useState} from 'react';
+import {View} from 'react-native';
+import auth from '@react-native-firebase/auth';
+import firestore from '@react-native-firebase/firestore';
+import {GiftedChat} from 'react-native-gifted-chat';
 
 const Chat = () => {
   const route = useRoute();
-
   const [messages, setMessages] = useState([]);
-
-  const [uid, setUID] = useState("");
-  const [name, setName] = useState("");
+  const [uid, setUID] = useState('');
+  const [name, setName] = useState('');
 
   useEffect(() => {
-    return firebase.auth().onAuthStateChanged((user) => {
-      setUID(user?.uid);
-      setName(user?.displayName);
+    const unsubscribeAuth = auth().onAuthStateChanged(user => {
+      if (user) {
+        setUID(user.uid);
+        setName(user.displayName);
+      }
     });
+    return unsubscribeAuth;
   }, []);
 
   useEffect(() => {
-    return firebase
-      .firestore()
-      .doc("chats/" + route.params.chatId)
-      .onSnapshot((snapshot) => {
-        setMessages(snapshot.data()?.messages ?? []);
+    const unsubscribeChat = firestore()
+      .doc('chats/' + route.params.chatId)
+      .onSnapshot(snapshot => {
+        const messages = snapshot.data()?.messages ?? [];
+        setMessages(
+          messages.map(msg => ({
+            ...msg,
+            createdAt: msg.createdAt?.toDate(), // Timestamp'i Date formatına çevir
+          })),
+        );
       });
+    return unsubscribeChat;
   }, [route.params.chatId]);
 
   const onSend = (m = []) => {
-    firebase
-      .firestore()
-      .doc("chats/" + route.params.chatId)
-      .set(
-        {
-          messages: GiftedChat.append(messages, m),
-        },
-        { merge: true }
-      );
+    firestore()
+      .doc('chats/' + route.params.chatId)
+      .update({
+        messages: firestore.FieldValue.arrayUnion(...m),
+      });
   };
 
   return (
-    <View style={{ flex: 1, backgroundColor: "white" }}>
+    <View style={{flex: 1, backgroundColor: 'white'}}>
       <GiftedChat
-        messages={messages.map((x) => ({
-          ...x,
-          createdAt: x.createdAt?.toDate(),
-        }))}
-        onSend={(messages) => onSend(messages)}
+        messages={messages}
+        onSend={messages => onSend(messages)}
         user={{
           _id: uid,
           name: name,
