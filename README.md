@@ -1,8 +1,5 @@
 npm install firebase
-
 npm install @react-native-firebase/app
-
-# İhtiyaca göre diğer paketleri yükleyebilirsiniz
 npm install @react-native-firebase/auth  # Kimlik doğrulama
 npm install @react-native-firebase/firestore  # Firestore
 npm install @react-native-firebase/messaging  # Push bildirimleri
